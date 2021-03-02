@@ -22,16 +22,9 @@ appender('STDOUT', ConsoleAppender) {
   }
 }
 
-if (Environment.isDevelopmentMode() || Environment.current == Environment.TEST) {
-  logger('com.k_int', DEBUG)
-  logger('org.gokb', DEBUG)
-  logger('gokbg3', DEBUG)
-}
-else {
-  logger('com.k_int', INFO)
-  logger('org.gokb', INFO)
-  logger('gokbg3', INFO)
-}
+logger('com.k_int', DEBUG)
+logger('org.gokb', DEBUG)
+logger('gokbg3', DEBUG)
 
 def targetDir = BuildSettings.TARGET_DIR
 if (Environment.isDevelopmentMode() && targetDir != null) {
