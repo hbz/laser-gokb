@@ -23,34 +23,9 @@ appender('STDOUT', ConsoleAppender) {
 }
 
 if (Environment.isDevelopmentMode() || Environment.current == Environment.TEST) {
-  logger('com.k_int', ERROR)
+  logger('com.k_int', DEBUG)
   logger('org.gokb', DEBUG)
-  logger('gokbg3', ERROR)
-
-  logger('org.gokb.DomainClassExtender', WARN)
-  logger('org.gokb.ClassExaminationService', WARN)
-  logger('org.gokb.IntegrationController', WARN)
-  logger('org.gokb.CrossReferenceService', ERROR)
-  logger('org.gokb.CrossRefPkgRun', INFO)
-  logger('org.gokb.PackageService', INFO)
-  logger('org.gokb.CleanupService', INFO)
-  logger('org.gokb.ComponentLookupService', INFO)
-  logger('org.gokb.ComponentStatisticService', INFO)
-  logger('org.gokb.ComponentUpdateService', INFO)
-  logger('org.gokb.TitleLookupService', INFO)
-  logger('org.gokb.SearchController', INFO)
-  logger('org.gokb.ResourceController', ERROR)
-  logger('org.gokb.AutoUpdatePackagesJob', DEBUG)
-  logger('org.gokb.FTUpdateService', ERROR)
-  logger('org.gokb.ESUpdateJob', ERROR)
-  logger('org.gokb.cred', ERROR)
-  logger('org.gokb.cred.BookInstance', ERROR)
-  logger('org.gokb.cred.JournalInstance', ERROR)
-  logger('org.gokb.cred.RefdataCategory', ERROR)
-  logger('gokbg3.RestMappingService', ERROR)
-  logger('gokbg3.UserDetailsInterceptor', ERROR)
-  logger('gokbg3.PreferencesInterceptor', ERROR)
-  logger('gokbg3.RestMappingService', ERROR)
+  logger('gokbg3', DEBUG)
 }
 else {
   logger('com.k_int', INFO)
