@@ -1,4 +1,4 @@
-package gokbg3;
+package gokbg3
 
 import grails.util.Environment
 import grails.core.GrailsClass
@@ -11,38 +11,33 @@ import javax.servlet.http.HttpServletRequest
 import grails.plugin.springsecurity.acl.*
 
 import org.gokb.DomainClassExtender
-import org.gokb.ComponentStatisticService
 import org.gokb.cred.*
 
-import com.k_int.apis.A_Api;
+import com.k_int.apis.A_Api
 import com.k_int.ConcurrencyManagerService.Job
 import org.elasticsearch.client.IndicesAdminClient
 import org.elasticsearch.action.admin.indices.create.CreateIndexRequestBuilder
 import org.elasticsearch.action.admin.indices.create.CreateIndexResponse
 
-class BootStrap {
+class BootStrap{
 
   GrailsApplication grailsApplication
-  def aclUtilService
-  def gokbAclService
   def cleanupService
-  def ComponentStatisticService
+  def componentStatisticService
   def concurrencyManagerService
   def ESWrapperService
-  //def titleLookupService
 
   def init = { servletContext ->
 
     log.debug("\n\nInit\n\n")
 
-    log.info("\n\n\n **WARNING** \n\n\n - Automatic create of component identifiers index is no longer part of the domain model");
-    log.info("Create manually with create index norm_id_value_idx on kbcomponent(kbc_normname(64),id_namespace_fk,class)");
-
-    ContentItem.withTransaction() {
+    log.info("\n\n\n **WARNING** \n\n\n - Automatic create of component identifiers index is no longer part of the domain model")
+    log.info("Create manually with create index norm_id_value_idx on kbcomponent(kbc_normname(64),id_namespace_fk,class)")
+    ContentItem.withTransaction(){
       def appname = ContentItem.findByKeyAndLocale('gokb.appname', 'default') ?: new ContentItem(key: 'gokb.appname', locale: 'default', content: 'GOKb').save(flush: true, failOnError: true)
     }
 
-    KBComponent.withTransaction() {
+    KBComponent.withTransaction(){
       cleanUpMissingDomains()
     }
 
@@ -58,7 +53,7 @@ class BootStrap {
     }
 
     // Global System Roles
-    KBComponent.withTransaction() {
+    KBComponent.withTransaction(){
       def contributorRole = Role.findByAuthority('ROLE_CONTRIBUTOR') ?: new Role(authority: 'ROLE_CONTRIBUTOR', roleType: 'global').save(failOnError: true)
       def userRole = Role.findByAuthority('ROLE_USER') ?: new Role(authority: 'ROLE_USER', roleType: 'global').save(failOnError: true)
       def editorRole = Role.findByAuthority('ROLE_EDITOR') ?: new Role(authority: 'ROLE_EDITOR', roleType: 'global').save(failOnError: true)
@@ -66,9 +61,9 @@ class BootStrap {
       def apiRole = Role.findByAuthority('ROLE_API') ?: new Role(authority: 'ROLE_API', roleType: 'global').save(failOnError: true)
       def suRole = Role.findByAuthority('ROLE_SUPERUSER') ?: new Role(authority: 'ROLE_SUPERUSER', roleType: 'global').save(failOnError: true)
 
-      log.debug("Create admin user...");
+      log.debug("Create admin user...")
       def adminUser = User.findByUsername('admin')
-      if (!adminUser) {
+      if (!adminUser){
         log.error("No admin user found, create")
         adminUser = new User(
             username: 'admin',
@@ -79,7 +74,7 @@ class BootStrap {
       }
 
       def ingestAgent = User.findByUsername('ingestAgent')
-      if (!ingestAgent) {
+      if (!ingestAgent){
         log.error("No ingestAgent user found, create")
         ingestAgent = new User(
             username: 'ingestAgent',
@@ -89,7 +84,7 @@ class BootStrap {
             enabled: false).save(failOnError: true)
       }
       def deletedUser = User.findByUsername('deleted')
-      if (!deletedUser) {
+      if (!deletedUser){
         log.error("No deleted user found, create")
         deletedUser = new User(
             username: 'deleted',
@@ -99,9 +94,9 @@ class BootStrap {
             enabled: false).save(failOnError: true)
       }
 
-      if (Environment.current != Environment.PRODUCTION) {
+      if (Environment.current != Environment.PRODUCTION){
         def tempUser = User.findByUsername('tempUser')
-        if (!tempUser) {
+        if (!tempUser){
           log.error("No tempUser found, create")
           tempUser = new User(
               username: 'tempUser',
@@ -110,96 +105,71 @@ class BootStrap {
               email: '',
               enabled: true).save(failOnError: true)
         }
-
-        if (!tempUser.authorities.contains(userRole)) {
+        if (!tempUser.authorities.contains(userRole)){
           UserRole.create tempUser, userRole
         }
       }
 
 
       // Make sure admin user has all the system roles.
-      [contributorRole, userRole, editorRole, adminRole, apiRole, suRole].each { role ->
-        log.debug("Ensure admin user has ${role} role");
-        if (!adminUser.authorities.contains(role)) {
+      [contributorRole, userRole, editorRole, adminRole, apiRole, suRole].each{ role ->
+        log.debug("Ensure admin user has ${role} role")
+        if (!adminUser.authorities.contains(role)){
           UserRole.create adminUser, role
         }
       }
     }
 
-
-    if (grailsApplication.config.gokb.decisionSupport) {
-      log.debug("Configuring default decision support parameters");
-      DSConfig();
+    if (grailsApplication.config.gokb.decisionSupport){
+      log.debug("Configuring default decision support parameters")
+      DSConfig()
     }
 
-//    String fs = grailsApplication.config.project_dir
-//    log.debug("Theme:: ${grailsApplication.config.gokb.theme}");
-//
-//    log.debug("Make sure project files directory exists, config says it's at ${fs}");
-//    File f = new File(fs)
-//    if ( ! f.exists() ) {
-//      log.debug("Creating upload directory path.")
-//      f.mkdirs()
-//    }
-
-
     refdataCats()
-
     registerDomainClasses()
-
     migrateDiskFilesToDatabase()
-
-    CuratoryGroup.withTransaction() {
-      if (grailsApplication.config.gokb.defaultCuratoryGroup != null) {
-
-        log.debug("Ensure curatory group: ${grailsApplication.config.gokb?.defaultCuratoryGroup}");
-
+    CuratoryGroup.withTransaction(){
+      if (grailsApplication.config.gokb.defaultCuratoryGroup != null){
+        log.debug("Ensure curatory group: ${grailsApplication.config.gokb?.defaultCuratoryGroup}")
         def local_cg = CuratoryGroup.findByName(grailsApplication.config.gokb?.defaultCuratoryGroup) ?:
-            new CuratoryGroup(name: grailsApplication.config.gokb?.defaultCuratoryGroup).save(flush: true, failOnError: true);
+            new CuratoryGroup(name: grailsApplication.config.gokb?.defaultCuratoryGroup).save(flush: true, failOnError: true)
       }
     }
 
-
-    log.info("GoKB missing normalised component names");
-
-    def ctr = 0;
-    KBComponent.executeQuery("select kbc.id from KBComponent as kbc where kbc.normname is null and kbc.name is not null").each { kbc_id ->
+    log.info("GoKB missing normalised component names")
+    def ctr = 0
+    KBComponent.executeQuery("select kbc.id from KBComponent as kbc where kbc.normname is null and kbc.name is not null").each{ kbc_id ->
       KBComponent kbc = KBComponent.get(kbc_id)
-      log.debug("Repair component with no normalised name.. ${kbc.class.name} ${kbc.id} ${kbc.name}");
+      log.debug("Repair component with no normalised name.. ${kbc.class.name} ${kbc.id} ${kbc.name}")
       kbc.generateNormname()
-      kbc.save(flush: true, failOnError: true);
+      kbc.save(flush: true, failOnError: true)
       ctr++
     }
-    log.debug("${ctr} components updated");
-
-    log.info("GoKB remove usused refdata");
+    log.debug("${ctr} components updated")
+    log.info("GoKB remove usused refdata")
     def rr_std = RefdataCategory.lookup('ReviewRequest.StdDesc', 'RR Standard Desc 1')
 
-    if (rr_std) {
+    if (rr_std){
       rr_std.delete()
     }
 
-    log.info("GoKB missing normalised identifiers");
-
-    def id_ctr = 0;
-    Identifier.executeQuery("select id.id from Identifier as id where id.normname is null and id.value is not null").each { id_id ->
+    log.info("GoKB missing normalised identifiers")
+    def id_ctr = 0
+    Identifier.executeQuery("select id.id from Identifier as id where id.normname is null and id.value is not null").each{ id_id ->
       Identifier i = Identifier.get(id_id)
       i.generateNormname()
       i.save(flush: true, failOnError: true)
       id_ctr++
     }
-    log.debug("${id_ctr} identifiers updated");
-
-    log.info("Fix missing Combo status");
-
+    log.debug("${id_ctr} identifiers updated")
+    log.info("Fix missing Combo status")
     def status_active = RefdataCategory.lookup(Combo.RD_STATUS, Combo.STATUS_ACTIVE)
     int num_c = Combo.executeUpdate("update Combo set status = ? where status is null", [status_active])
-    log.debug("${num_c} combos updated");
-
-    log.info("GoKB defaultSortKeys()");
+    log.debug("${num_c} combos updated")
+    log.info("GoKB defaultSortKeys()")
     defaultSortKeys()
 
-    log.info("GoKB sourceObjects()");
+    log.info("GoKB sourceObjects()")
     sourceObjects()
 
     log.info("Ensure default Identifier namespaces")
@@ -214,101 +184,95 @@ class BootStrap {
         [value: 'isil', name: 'ISIL', pattern: "^(?=[0-9A-Z-]{4,16}\$)[A-Z]{1,4}-[A-Z0-9]{1,11}(-[A-Z0-9]+)?\$"]
     ]
 
-    namespaces.each { ns ->
+    namespaces.each{ ns ->
       def ns_obj = IdentifierNamespace.findByValue(ns.value)
 
-      if (ns_obj) {
-        if (ns.pattern && !ns_obj.pattern) {
+      if (ns_obj){
+        if (ns.pattern && !ns_obj.pattern){
           ns_obj.pattern = ns.pattern
           ns_obj.save(flush: true)
         }
-
-        if (ns.name && !ns_obj.name) {
+        if (ns.name && !ns_obj.name){
           ns_obj.name = ns.name
           ns_obj.save(flush: true)
         }
-      } else {
+      }
+      else{
         ns_obj = new IdentifierNamespace(ns).save(flush: true, failOnError: true)
       }
-
       log.info("Ensured ${ns_obj}!")
     }
 
-
-    // log.info("Default batch loader config");
-    // defaultBulkLoaderConfig();
-
-    log.debug("Register users and override default admin password");
+    log.debug("Register users and override default admin password")
     registerUsers()
 
     log.debug("Ensuring ElasticSearch index")
     ensureEsIndices()
 
-
-    Job hk_job = concurrencyManagerService.createJob {
+    Job hk_job = concurrencyManagerService.createJob{
       cleanupService.housekeeping()
     }.startOrQueue()
-
     hk_job.description = "Bootstrap Identifier Cleanup"
     hk_job.type = RefdataCategory.lookupOrCreate('Job.Type', 'BootstrapIdentifierCleanup')
-
     hk_job.startTime = new Date()
 
     log.debug("Checking for missing component statistics")
-    ComponentStatisticService.updateCompStats()
-
-    log.info("GoKB Init complete");
+    componentStatisticService.updateCompStats()
+    log.info("GoKB Init complete")
   }
 
-  def defaultBulkLoaderConfig() {
+
+  def defaultBulkLoaderConfig(){
     // BulkLoaderConfig
-    grailsApplication.config.kbart2.mappings.each { k, v ->
-      log.debug("Process ${k}");
+    grailsApplication.config.kbart2.mappings.each{ k, v ->
+      log.debug("Process ${k}")
       def existing_cfg = BulkLoaderConfig.findByCode(k)
-      if (existing_cfg) {
-        log.debug("Got existing config");
-      } else {
+      if (existing_cfg){
+        log.debug("Got existing config")
+      }
+      else{
         def cfg = v as JSON
         existing_cfg = new BulkLoaderConfig(code: k, cfg: cfg?.toString()).save(flush: true, failOnError: true)
       }
     }
   }
 
-  def migrateDiskFilesToDatabase() {
-    log.info("Migrate Disk Files");
+
+  def migrateDiskFilesToDatabase(){
+    log.info("Migrate Disk Files")
     def baseUploadDir = grailsApplication.config.baseUploadDir ?: '.'
 
-    DataFile.findAll("from DataFile as df where df.fileData is null").each { df ->
+    DataFile.findAll("from DataFile as df where df.fileData is null").each{ df ->
       log.debug("Migrating files for ${df.uploadName}::${df.guid}")
-      def sub1 = df.guid.substring(0, 2);
-      def sub2 = df.guid.substring(2, 4);
-      def temp_file_name = "${baseUploadDir}/${sub1}/${sub2}/${df.guid}";
-      try {
-        def source_file = new File(temp_file_name);
+      def sub1 = df.guid.substring(0, 2)
+      def sub2 = df.guid.substring(2, 4)
+      def temp_file_name = "${baseUploadDir}/${sub1}/${sub2}/${df.guid}"
+      try{
+        def source_file = new File(temp_file_name)
         df.fileData = source_file.getBytes()
-        if (df.save(flush: true)) {
+        if (df.save(flush: true)){
           //success
           source_file.delete()
-        } else {
+        }
+        else{
           log.debug("Errors while trying to save DataFile fileData:")
           log.debug(df.errors)
         }
-      } catch (Exception e) {
+      }
+      catch (Exception e){
         log.error("Exception while migrating files to database. File ${temp_file_name}", e)
       }
     }
   }
 
-  def cleanUpMissingDomains() {
 
-    def domains = KBDomainInfo.createCriteria().list { ilike('dcName', 'org.gokb%') }.each { d ->
-      try {
-
+  def cleanUpMissingDomains(){
+    def domains = KBDomainInfo.createCriteria().list{ ilike('dcName', 'org.gokb%') }.each{ d ->
+      try{
         // Just try reading the class.
         Class c = Class.forName(d.dcName)
-        // log.debug ("Looking for ${d.dcName} found class ${c}.")
-
-      } catch (ClassNotFoundException e) {
+      }
+      catch (ClassNotFoundException e){
         d.delete(flush: true)
         log.info("Deleted domain object for ${d.dcName} as the Class could not be found.")
       }
@@ -316,10 +280,9 @@ class BootStrap {
   }
 
 
-  private void addCustomApis() {
-
+  private void addCustomApis(){
     log.debug("Extend Domain classes.")
-    (grailsApplication.getArtefacts("Domain")*.clazz).each { Class<?> c ->
+    (grailsApplication.getArtefacts("Domain")*.clazz).each{ Class<?> c ->
 
       // SO: Changed this to use the APIs 'applicableFor' method that is used to check whether,
       // to add to the class or not. This defaults to "true". Have overriden on the GrailsDomainHelperApi utils
@@ -328,18 +291,16 @@ class BootStrap {
       // II: has this caused projects under org.gokb.refine to no longer be visible? Not sure how to fix it.
 
       // log.debug("Considering ${c}")
-      grailsApplication.config.apiClasses.each { String className ->
-        // log.debug("Adding methods to ${c.name} from ${className}");
-        // Add the api methods.
+      grailsApplication.config.apiClasses.each{ String className ->
+        // log.debug("Adding methods to ${c.name} from ${className}")
+// Add the api methods.
         A_Api.addMethods(c, Class.forName(className))
       }
     }
   }
 
-  def registerDomainClasses() {
-
+  def registerDomainClasses(){
     log.debug("Register Domain Classes")
-
     AclClass aclClass = AclClass.findByClassName('org.gokb.cred.KBDomainInfo') ?: new AclClass(className: 'org.gokb.cred.KBDomainInfo').save(flush: true)
 
     AclSid sidAdmin = AclSid.findBySid('ROLE_ADMIN') ?: new AclSid(sid: 'ROLE_ADMIN', principal: false).save(flush: true)
@@ -350,18 +311,18 @@ class BootStrap {
     AclSid sidApi = AclSid.findBySid('ROLE_API') ?: new AclSid(sid: 'ROLE_API', principal: false).save(flush: true)
 
     RefdataValue std_domain_type = RefdataCategory.lookupOrCreate('DCType', 'Standard').save(flush: true, failOnError: true)
-    grailsApplication.domainClasses.each { dc ->
-      // log.debug("Ensure ${dc.name} has entry in KBDomainInfo table");
+    grailsApplication.domainClasses.each{ dc ->
+      // log.debug("Ensure ${dc.name} has entry in KBDomainInfo table")
       KBDomainInfo dcinfo = KBDomainInfo.findByDcName(dc.clazz.name)
-      if (dcinfo == null) {
-        dcinfo = new KBDomainInfo(dcName: dc.clazz.name, displayName: dc.name, type: std_domain_type);
-        dcinfo.save(flush: true);
+      if (dcinfo == null){
+        dcinfo = new KBDomainInfo(dcName: dc.clazz.name, displayName: dc.name, type: std_domain_type)
+        dcinfo.save(flush: true)
       }
 
-      if (dcinfo.dcName.startsWith('org.gokb.cred') || dcinfo.dcName == 'org.gokb.Annotation') {
+      if (dcinfo.dcName.startsWith('org.gokb.cred') || dcinfo.dcName == 'org.gokb.Annotation'){
         AclObjectIdentity oid
 
-        if (!AclObjectIdentity.findByObjectId(dcinfo.id)) {
+        if (!AclObjectIdentity.findByObjectId(dcinfo.id)){
           oid = new AclObjectIdentity(objectId: dcinfo.id, aclClass: aclClass, owner: sidAdmin, entriesInheriting: false).save(flush: true)
         }
       }
@@ -369,41 +330,36 @@ class BootStrap {
   }
 
   def alterDefaultMetaclass = {
-
     // Inject helpers to Domain classes.
-    grailsApplication.domainClasses.each { GrailsClass domainClass ->
-
+    grailsApplication.domainClasses.each{ GrailsClass domainClass ->
       // Extend the domain class.
       DomainClassExtender.extend(domainClass)
-
     }
   }
 
-  def assertPublisher(name) {
+  def assertPublisher(name){
     def p = Org.findByName(name)
-    if (!p) {
-      def content_provider_role = RefdataCategory.lookupOrCreate('Org Role', 'Content Provider');
+    if (!p){
+      def content_provider_role = RefdataCategory.lookupOrCreate('Org Role', 'Content Provider')
       p = new Org(name: name)
-      p.tags.add(content_provider_role);
-      p.save(flush: true);
+      p.tags.add(content_provider_role)
+      p.save(flush: true)
     }
 
   }
 
-  def defaultSortKeys() {
+  def defaultSortKeys(){
     def vals = RefdataValue.executeQuery("select o from RefdataValue o where o.sortKey is null or trim(o.sortKey) = ''")
-
     // Default the sort key to 0.
-    vals.each {
+    vals.each{
       it.sortKey = "0"
       it.save(flush: true, failOnError: true)
     }
-
     // Now we should also do the same for the Domain objects.
     vals = KBDomainInfo.executeQuery("select o from KBDomainInfo o where o.dcSortOrder is null or trim(o.dcSortOrder) = ''")
 
     // Default the sort key to 0.
-    vals.each {
+    vals.each{
       it.dcSortOrder = "0"
       it.save(flush: true, failOnError: true)
     }
@@ -414,12 +370,12 @@ class BootStrap {
   }
 
 
-  def refdataCats() {
+  def refdataCats(){
     RefdataCategory.lookupOrCreate(KBComponent.RD_STATUS,
-        [(KBComponent.STATUS_CURRENT)  : '0',
-         (KBComponent.STATUS_EXPECTED) : '1',
-         (KBComponent.STATUS_RETIRED)  : '2',
-         (KBComponent.STATUS_DELETED)  : '3'
+        [(KBComponent.STATUS_CURRENT) : '0',
+         (KBComponent.STATUS_EXPECTED): '1',
+         (KBComponent.STATUS_RETIRED) : '2',
+         (KBComponent.STATUS_DELETED) : '3'
         ]
     )
 
@@ -450,7 +406,7 @@ class BootStrap {
     RefdataCategory.lookupOrCreate("TitleInstancePackagePlatform.PaymentType", "Uncharged").save(flush: true, failOnError: true)
     RefdataCategory.lookupOrCreate("TitleInstancePackagePlatform.PaymentType", "Unknown").save(flush: true, failOnError: true)
 
-    ['Database', 'Monograph', 'Other', 'Serial'].each { pubType ->
+    ['Database', 'Monograph', 'Other', 'Serial'].each{ pubType ->
       RefdataCategory.lookupOrCreate("TitleInstancePackagePlatform.PublicationType", pubType).save(flush: true, failOnError: true)
     }
 
@@ -512,7 +468,7 @@ class BootStrap {
 
     ["A & I Database", "Audio", "Book", "Database", "Dataset", "Film", "Image", "Journal",
      "Other", "Published Score", "Article", "Software", "Statistics", "Market Data", "Standards",
-     "Biography", "Legal Text", "Cartography", "Miscellaneous", "Other"].each { med ->
+     "Biography", "Legal Text", "Cartography", "Miscellaneous", "Other"].each{ med ->
       RefdataCategory.lookupOrCreate("TitleInstance.Medium", med).save(flush: true, failOnError: true)
       RefdataCategory.lookupOrCreate("TitleInstancePackagePlatform.Medium", med).save(flush: true, failOnError: true)
     }
@@ -805,22 +761,10 @@ class BootStrap {
     RefdataCategory.lookupOrCreate('Country', 'Yemen').save(flush: true, failOnError: true)
     RefdataCategory.lookupOrCreate('Country', 'Zambia').save(flush: true, failOnError: true)
     RefdataCategory.lookupOrCreate('Country', 'Zimbabwe').save(flush: true, failOnError: true)
-    //    RefdataCategory.lookupOrCreate("Combo.Type", "Content Provider").save()
     RefdataCategory.lookupOrCreate("Combo.Status", Combo.STATUS_ACTIVE).save(flush: true, failOnError: true)
     RefdataCategory.lookupOrCreate("Combo.Status", Combo.STATUS_DELETED).save(flush: true, failOnError: true)
     RefdataCategory.lookupOrCreate("Combo.Status", Combo.STATUS_SUPERSEDED).save(flush: true, failOnError: true)
     RefdataCategory.lookupOrCreate("Combo.Status", Combo.STATUS_EXPIRED).save(flush: true, failOnError: true)
-
-    //    RefdataCategory.lookupOrCreate('ComboType','Unknown').save()
-    //    RefdataCategory.lookupOrCreate('ComboType','Previous').save()
-    //    RefdataCategory.lookupOrCreate('ComboType','Model').save()
-    //    RefdataCategory.lookupOrCreate('ComboType','Parent').save()
-    //    RefdataCategory.lookupOrCreate('ComboType','Translated').save()
-    //    RefdataCategory.lookupOrCreate('ComboType','Absorbed').save()
-    //    RefdataCategory.lookupOrCreate('ComboType','Merged').save()
-    //    RefdataCategory.lookupOrCreate('ComboType','Renamed').save()
-    //    RefdataCategory.lookupOrCreate('ComboType','Split').save()
-    //    RefdataCategory.lookupOrCreate('ComboType','Transferred').save()
 
     RefdataCategory.lookupOrCreate('License.Type', 'Template').save(flush: true, failOnError: true)
     RefdataCategory.lookupOrCreate('License.Type', 'Other').save(flush: true, failOnError: true)
@@ -830,7 +774,6 @@ class BootStrap {
     RefdataCategory.lookupOrCreate('KBComponentVariantName.VariantType', 'Acronym').save(flush: true, failOnError: true)
     RefdataCategory.lookupOrCreate('KBComponentVariantName.VariantType', 'Minor Change').save(flush: true, failOnError: true)
     RefdataCategory.lookupOrCreate('KBComponentVariantName.VariantType', 'Nickname').save(flush: true, failOnError: true)
-
 
     RefdataCategory.lookupOrCreate('KBComponentVariantName.Locale', 'en_US').save(flush: true, failOnError: true)
     RefdataCategory.lookupOrCreate('KBComponentVariantName.Locale', 'en_GB').save(flush: true, failOnError: true)
@@ -872,7 +815,6 @@ class BootStrap {
     RefdataCategory.lookupOrCreate('ReviewRequest.StdDesc', 'Invalid TIPPs').save(flush: true, failOnError: true)
     RefdataCategory.lookupOrCreate('ReviewRequest.StdDesc', 'Removed Identifier').save(flush: true, failOnError: true)
     RefdataCategory.lookupOrCreate('ReviewRequest.StdDesc', 'Ambiguous Matches').save(flush: true, failOnError: true)
-
 
     RefdataCategory.lookupOrCreate('Activity.Status', 'Active').save(flush: true, failOnError: true)
     RefdataCategory.lookupOrCreate('Activity.Status', 'Complete').save(flush: true, failOnError: true)
@@ -955,7 +897,6 @@ class BootStrap {
     RefdataCategory.lookupOrCreate('Combo.Type', 'IngestionProfile.Source').save(flush: true, failOnError: true)
     RefdataCategory.lookupOrCreate('Combo.type', 'Source.CuratoryGroups').save(flush: true, failOnError: true)
 
-
     RefdataCategory.lookupOrCreate('MembershipRole', 'Administrator').save(flush: true, failOnError: true)
     RefdataCategory.lookupOrCreate('MembershipRole', 'Member').save(flush: true, failOnError: true)
 
@@ -1001,11 +942,12 @@ class BootStrap {
 
     LanguagesService.initialize()
 
-    log.debug("Deleting any null refdata values");
-    RefdataValue.executeUpdate('delete from RefdataValue where value is null');
+    log.debug("Deleting any null refdata values")
+    RefdataValue.executeUpdate('delete from RefdataValue where value is null')
   }
 
-  def sourceObjects() {
+
+  def sourceObjects(){
     log.debug("Lookup or create source objects")
     def ybp_source = Source.findByName('YBP') ?: new Source(name: 'YBP').save(flush: true, failOnError: true)
     def cup_source = Source.findByName('CUP') ?: new Source(name: 'CUP').save(flush: true, failOnError: true)
@@ -1016,7 +958,7 @@ class BootStrap {
   }
 
 
-  def DSConfig() {
+  def DSConfig(){
     [
         'accessdl': 'Access - Download',
         'accessol': 'Access - Read Online',
@@ -1028,7 +970,7 @@ class BootStrap {
         'lic'     : 'Licensing',
         'other'   : 'Other',
         'ref'     : 'Referencing',
-    ].each { k, v ->
+    ].each{ k, v ->
       def dscat = DSCategory.findByCode(k) ?: new DSCategory(code: k, description: v).save(flush: true, failOnError: true)
     }
 
@@ -1076,36 +1018,37 @@ class BootStrap {
         ['lic', 'Number of users', '', ''],
         ['lic', 'Credit Payment Model', '', ''],
         ['lic', 'Publishers Included', '', '']
-    ].each { crit ->
-      def cat = DSCategory.findByCode(crit[0]);
-      if (cat) {
+    ].each{ crit ->
+      def cat = DSCategory.findByCode(crit[0])
+      if (cat){
         def c = DSCriterion.findByOwnerAndTitle(cat, crit[1]) ?: new DSCriterion(
             owner: cat,
             title: crit[1],
             description: crit[2],
             explanation: crit[3]).save(flush: true, failOnError: true)
-      } else {
+      }
+      else{
         log.error("Unable to locate category: ${crit[0]}")
       }
     }
-    //log.debug(titleLookupService.getTitleFieldForIdentifier([[ns:'isbn',value:'9780195090017']],'publishedFrom'));
-    //log.debug(titleLookupService.getTitleFieldForIdentifier([[ns:'isbn',value:'9780195090017']],'publishedTo'));
   }
 
 
-  def registerUsers() {
-    grailsApplication.config.sysusers.each { su ->
+  def registerUsers(){
+    grailsApplication.config.sysusers.each{ su ->
       log.debug("test ${su.name} ${su.pass} ${su.display} ${su.roles}")
       def user = User.findByUsername(su.name)
-      if (user) {
-        if (user.password != su.pass) {
+      if (user){
+        if (user.password != su.pass){
           log.debug("Hard change of user password from config ${user.password} -> ${su.pass}")
           user.password = su.pass
           user.save(failOnError: true)
-        } else {
-          log.debug("${su.name} present and correct");
         }
-      } else {
+        else{
+          log.debug("${su.name} present and correct")
+        }
+      }
+      else{
         log.debug("Create user...")
         user = new User(
             username: su.name,
@@ -1115,13 +1058,14 @@ class BootStrap {
             enabled: true).save(failOnError: true)
       }
 
-      log.debug("Add roles for ${su.name}");
-      su.roles.each { r ->
+      log.debug("Add roles for ${su.name}")
+      su.roles.each{ r ->
         def role = Role.findByAuthority(r)
-        if (!(user.authorities.contains(role))) {
+        if (!(user.authorities.contains(role))){
           log.debug("  -> adding role ${role}")
           UserRole.create user, role
-        } else {
+        }
+        else{
           log.debug("  -> ${role} already present")
         }
       }
@@ -1129,20 +1073,20 @@ class BootStrap {
   }
 
 
-  def ensureEsIndices() {
+  def ensureEsIndices(){
     def esIndices = grailsApplication.config.gokb.es.indices?.values()
-    for (String indexName in esIndices) {
+    for (String indexName in esIndices){
       ensureEsIndex(indexName)
     }
   }
 
 
-  def ensureEsIndex(String indexName) {
-    log.debug("ensureESIndex for ${indexName}");
+  def ensureEsIndex(String indexName){
+    log.debug("ensureESIndex for ${indexName}")
     def esclient = ESWrapperService.getClient()
     IndicesAdminClient adminClient = esclient.admin().indices()
 
-    if (!adminClient.prepareExists(indexName).execute().actionGet().isExists()) {
+    if (!adminClient.prepareExists(indexName).execute().actionGet().isExists()){
       log.debug("ES index ${indexName} did not exist, creating..")
 
       CreateIndexRequestBuilder createIndexRequestBuilder = adminClient.prepareCreate(indexName)
@@ -1154,12 +1098,14 @@ class BootStrap {
 
       CreateIndexResponse indexResponse = createIndexRequestBuilder.execute().actionGet()
 
-      if (indexResponse.isAcknowledged()) {
+      if (indexResponse.isAcknowledged()){
         log.debug("Index ${indexName} successfully created!")
-      } else {
+      }
+      else{
         log.debug("Index creation failed: ${indexResponse}")
       }
-    } else {
+    }
+    else{
       log.debug("ES index ${indexName} already exists..")
       // Validate settings & mappings
     }
