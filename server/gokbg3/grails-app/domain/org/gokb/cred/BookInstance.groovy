@@ -79,7 +79,7 @@ class BookInstance extends TitleInstance {
   }
 
   @Override
-  public String getNiceName() {
+  String getNiceName() {
     return "Book";
   }
 
@@ -120,7 +120,7 @@ class BookInstance extends TitleInstance {
 //     submitRemapWorkTask();
   }
 
-  public static String generateBookDiscriminator(Map relevantFields) {
+  static String generateBookDiscriminator(Map relevantFields) {
     def result = null;
 
     def normVolume = generateNormname(relevantFields.volumeNumber)
@@ -144,7 +144,6 @@ class BookInstance extends TitleInstance {
       }
       tls.remapTitleInstance('org.gokb.cred.BookInstance:' + this.id)
     }
-
     // We cannot wait for the task to complete as the transaction has to complete in order
     // for the Instance to become visible to other transactions. Therefore there has to be
     // a delay between completing the Instance update, and attempting to resolve the work.
@@ -153,36 +152,22 @@ class BookInstance extends TitleInstance {
     }
   }
 
-  public static def validateDTO(JSONObject titleDTO, locale) {
+
+  static def validateDTO(JSONObject titleDTO, locale) {
     def result = TitleInstance.validateDTO(titleDTO, locale)
     def valErrors = [:]
-
-    // shortening some db fields with standard size of 255 if needed.
-    // does not invalidate the DTO!
-    ['firstAuthor', 'firstEditor'].each { key ->
-      if (titleDTO.containsKey(key)) {
-        if (titleDTO[key].size() > 255) {
-          valErrors.put(key,[message: "too long", baddata: titleDTO[key]])
-          titleDTO[key] = titleDTO[key].substring(0, 251).concat(" ...")
-          log.warn("value in key ’${key}’ was clipped to: ${titleDTO[key]}")
-        }
-      }
-    }
-
     if (titleDTO.dateFirstInPrint) {
       LocalDateTime dfip = GOKbTextUtils.completeDateString(titleDTO.dateFirstInPrint, false)
       if (!dfip) {
         valErrors.put('dateFirstInPrint', [message: "Unable to parse", baddata: titleDTO.remove('dateFirstInPrint')])
       }
     }
-
     if (titleDTO.dateFirstOnline) {
       LocalDateTime dfo = GOKbTextUtils.completeDateString(titleDTO.dateFirstOnline, false)
       if (!dfo) {
         valErrors.put('dateFirstOnline', [message: "Unable to parse", baddata: titleDTO.remove('dateFirstOnline')])
       }
     }
-
     if (valErrors.size() > 0) {
       if (result.errors) {
         result.errors.putAll(valErrors)
@@ -194,7 +179,7 @@ class BookInstance extends TitleInstance {
     result
   }
 
-  public boolean addMonographFields(JSONObject titleObj) {
+  boolean addMonographFields(JSONObject titleObj) {
     def book_changed = false
 
     ["editionNumber", "editionDifferentiator",
