@@ -1,7 +1,5 @@
 package gokbg3
 
-import grails.gorm.transactions.Transactional
-
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 
@@ -21,10 +19,12 @@ class DateFormatService {
   }
 
   Date parseDate(String date) {
-    if(date != "") {
+    try{
       DATE_FORMAT.parse(date)
-    }else{
-      null
+    }
+    catch (NumberFormatException nfe){
+      log.error("Caught NumberFormatException in parseDate() for String \"$date\"")
+      return null
     }
   }
 
